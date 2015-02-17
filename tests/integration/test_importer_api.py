@@ -23,6 +23,8 @@ from django.core.files.base import ContentFile
 
 from .. import factories as f
 
+from django.apps import apps
+
 from taiga.base.utils import json
 from taiga.projects.models import Project
 from taiga.projects.issues.models import Issue
@@ -46,6 +48,7 @@ def test_invalid_project_import(client):
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
 
+
 def test_valid_project_import_without_extra_data(client):
     user = f.UserFactory.create()
     client.login(user)
@@ -68,6 +71,7 @@ def test_valid_project_import_without_extra_data(client):
     assert all(map(lambda x: len(response_data[x]) == 0, must_empty_children))
     assert response_data["owner"] == user.email
 
+
 def test_valid_project_import_with_not_existing_memberships(client):
     user = f.UserFactory.create()
     client.login(user)
@@ -88,6 +92,7 @@ def test_valid_project_import_with_not_existing_memberships(client):
     response_data = json.loads(response.content.decode("utf-8"))
     # The new membership and the owner membership
     assert len(response_data["memberships"]) == 2
+
 
 def test_valid_project_import_with_extra_data(client):
     user = f.UserFactory.create()
@@ -142,6 +147,7 @@ def test_valid_project_import_with_extra_data(client):
     assert all(map(lambda x: len(response_data[x]) == 1, must_one_instance_children))
     assert response_data["owner"] == user.email
 
+
 def test_invalid_project_import_with_extra_data(client):
     user = f.UserFactory.create()
     client.login(user)
@@ -165,6 +171,7 @@ def test_invalid_project_import_with_extra_data(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert len(response_data) == 8
     assert Project.objects.filter(slug="imported-project").count() == 0
+
 
 def test_valid_project_import_with_custom_attributes(client):
     user = f.UserFactory.create()
@@ -201,6 +208,7 @@ def test_valid_project_import_with_custom_attributes(client):
     assert all(map(lambda x: len(response.data[x]) == 1, must_one_instance_children))
     assert response.data["owner"] == user.email
 
+
 def test_invalid_project_import_with_custom_attributes(client):
     user = f.UserFactory.create()
 
@@ -219,6 +227,7 @@ def test_invalid_project_import_with_custom_attributes(client):
     assert len(response.data) == 3
     assert Project.objects.filter(slug="imported-project").count() == 0
 
+
 def test_invalid_issue_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -230,6 +239,7 @@ def test_invalid_issue_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_user_story_import(client):
     user = f.UserFactory.create()
@@ -250,6 +260,30 @@ def test_valid_user_story_import(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["subject"] == "Imported issue"
     assert response_data["finish_date"] == "2014-10-24T00:00:00+0000"
+
+
+def test_valid_user_story_import_with_custom_attributes_values(client):
+    user = f.UserFactory.create()
+    project = f.ProjectFactory.create(owner=user)
+    membership = f.MembershipFactory(project=project, user=user, is_owner=True)
+    project.default_us_status = f.UserStoryStatusFactory.create(project=project)
+    project.save()
+    custom_attr = f.UserStoryCustomAttributeFactory(project=project)
+
+    url = reverse("importer-us", args=[project.pk])
+    data = {
+        "subject": "Test Custom Attrs Values User Story",
+        "custom_attributes_values": {
+            custom_attr.name: "test_value"
+        }
+    }
+
+    client.login(user)
+    response = client.json.post(url, json.dumps(data))
+    assert response.status_code == 201
+    custom_attributes_values = apps.get_model("custom_attributes.UserStoryCustomAttributesValues").objects.get(
+                                                        user_story__subject=response.data["subject"])
+    assert custom_attributes_values.values == {str(custom_attr.id): "test_value"}
 
 
 def test_valid_issue_import_without_extra_data(client):
@@ -273,6 +307,33 @@ def test_valid_issue_import_without_extra_data(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["owner"] == user.email
     assert response_data["ref"] is not None
+
+
+def test_valid_issue_import_with_custom_attributes_values(client):
+    user = f.UserFactory.create()
+    project = f.ProjectFactory.create(owner=user)
+    membership = f.MembershipFactory(project=project, user=user, is_owner=True)
+    project.default_issue_type = f.IssueTypeFactory.create(project=project)
+    project.default_issue_status = f.IssueStatusFactory.create(project=project)
+    project.default_severity = f.SeverityFactory.create(project=project)
+    project.default_priority = f.PriorityFactory.create(project=project)
+    project.save()
+    custom_attr = f.IssueCustomAttributeFactory(project=project)
+
+    url = reverse("importer-issue", args=[project.pk])
+    data = {
+        "subject": "Test Custom Attrs Values Issues",
+        "custom_attributes_values": {
+            custom_attr.name: "test_value"
+        }
+    }
+
+    client.login(user)
+    response = client.json.post(url, json.dumps(data))
+    assert response.status_code == 201
+    custom_attributes_values = apps.get_model("custom_attributes.IssueCustomAttributesValues").objects.get(
+                                                        issue__subject=response.data["subject"])
+    assert custom_attributes_values.values == {str(custom_attr.id): "test_value"}
 
 def test_valid_issue_import_with_extra_data(client):
     user = f.UserFactory.create()
@@ -307,6 +368,7 @@ def test_valid_issue_import_with_extra_data(client):
     assert response_data["ref"] is not None
     assert response_data["finished_date"] == "2014-10-24T00:00:00+0000"
 
+
 def test_invalid_issue_import_with_extra_data(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -330,6 +392,7 @@ def test_invalid_issue_import_with_extra_data(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert len(response_data) == 1
     assert Issue.objects.filter(subject="Imported issue").count() == 0
+
 
 def test_invalid_issue_import_with_bad_choices(client):
     user = f.UserFactory.create()
@@ -390,6 +453,7 @@ def test_invalid_issue_import_with_bad_choices(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert len(response_data) == 1
 
+
 def test_invalid_us_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -401,6 +465,7 @@ def test_invalid_us_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_us_import_without_extra_data(client):
     user = f.UserFactory.create()
@@ -420,6 +485,7 @@ def test_valid_us_import_without_extra_data(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["owner"] == user.email
     assert response_data["ref"] is not None
+
 
 def test_valid_us_import_with_extra_data(client):
     user = f.UserFactory.create()
@@ -449,6 +515,7 @@ def test_valid_us_import_with_extra_data(client):
     assert response_data["owner"] == user.email
     assert response_data["ref"] is not None
 
+
 def test_invalid_us_import_with_extra_data(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -470,6 +537,7 @@ def test_invalid_us_import_with_extra_data(client):
     assert len(response_data) == 1
     assert UserStory.objects.filter(subject="Imported us").count() == 0
 
+
 def test_invalid_us_import_with_bad_choices(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -490,6 +558,7 @@ def test_invalid_us_import_with_bad_choices(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert len(response_data) == 1
 
+
 def test_invalid_task_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -501,6 +570,7 @@ def test_invalid_task_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_task_import_without_extra_data(client):
     user = f.UserFactory.create()
@@ -520,6 +590,31 @@ def test_valid_task_import_without_extra_data(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["owner"] == user.email
     assert response_data["ref"] is not None
+
+
+def test_valid_task_import_with_custom_attributes_values(client):
+    user = f.UserFactory.create()
+    project = f.ProjectFactory.create(owner=user)
+    membership = f.MembershipFactory(project=project, user=user, is_owner=True)
+    project.default_task_status = f.TaskStatusFactory.create(project=project)
+    project.save()
+    custom_attr = f.TaskCustomAttributeFactory(project=project)
+
+    url = reverse("importer-task", args=[project.pk])
+    data = {
+        "subject": "Test Custom Attrs Values Tasks",
+        "custom_attributes_values": {
+            custom_attr.name: "test_value"
+        }
+    }
+
+    client.login(user)
+    response = client.json.post(url, json.dumps(data))
+    assert response.status_code == 201
+    custom_attributes_values = apps.get_model("custom_attributes.TaskCustomAttributesValues").objects.get(
+                                                        task__subject=response.data["subject"])
+    assert custom_attributes_values.values == {str(custom_attr.id): "test_value"}
+
 
 def test_valid_task_import_with_extra_data(client):
     user = f.UserFactory.create()
@@ -549,6 +644,7 @@ def test_valid_task_import_with_extra_data(client):
     assert response_data["owner"] == user.email
     assert response_data["ref"] is not None
 
+
 def test_invalid_task_import_with_extra_data(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -570,6 +666,7 @@ def test_invalid_task_import_with_extra_data(client):
     assert len(response_data) == 1
     assert Task.objects.filter(subject="Imported task").count() == 0
 
+
 def test_invalid_task_import_with_bad_choices(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -589,6 +686,7 @@ def test_invalid_task_import_with_bad_choices(client):
     assert response.status_code == 400
     response_data = json.loads(response.content.decode("utf-8"))
     assert len(response_data) == 1
+
 
 def test_valid_task_with_user_story(client):
     user = f.UserFactory.create()
@@ -610,6 +708,7 @@ def test_valid_task_with_user_story(client):
     assert response.status_code == 201
     assert us.tasks.all().count() == 1
 
+
 def test_invalid_wiki_page_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -621,6 +720,7 @@ def test_invalid_wiki_page_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_wiki_page_import_without_extra_data(client):
     user = f.UserFactory.create()
@@ -637,6 +737,7 @@ def test_valid_wiki_page_import_without_extra_data(client):
     assert response.status_code == 201
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["owner"] == user.email
+
 
 def test_valid_wiki_page_import_with_extra_data(client):
     user = f.UserFactory.create()
@@ -663,6 +764,7 @@ def test_valid_wiki_page_import_with_extra_data(client):
     assert len(response_data["attachments"]) == 1
     assert response_data["owner"] == user.email
 
+
 def test_invalid_wiki_page_import_with_extra_data(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -682,6 +784,7 @@ def test_invalid_wiki_page_import_with_extra_data(client):
     assert len(response_data) == 1
     assert WikiPage.objects.filter(slug="imported-wiki-page").count() == 0
 
+
 def test_invalid_wiki_link_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -693,6 +796,7 @@ def test_invalid_wiki_link_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_wiki_link_import(client):
     user = f.UserFactory.create()
@@ -710,6 +814,7 @@ def test_valid_wiki_link_import(client):
     assert response.status_code == 201
     response_data = json.loads(response.content.decode("utf-8"))
 
+
 def test_invalid_milestone_import(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -721,6 +826,7 @@ def test_invalid_milestone_import(client):
 
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 400
+
 
 def test_valid_milestone_import(client):
     user = f.UserFactory.create()
@@ -738,6 +844,7 @@ def test_valid_milestone_import(client):
     response = client.post(url, json.dumps(data), content_type="application/json")
     assert response.status_code == 201
     response_data = json.loads(response.content.decode("utf-8"))
+
 
 def test_milestone_import_duplicated_milestone(client):
     user = f.UserFactory.create()
@@ -758,6 +865,7 @@ def test_milestone_import_duplicated_milestone(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["milestones"][0]["name"][0] == "Name duplicated for the project"
 
+
 def test_invalid_dump_import(client):
     user = f.UserFactory.create()
     client.login(user)
@@ -771,6 +879,7 @@ def test_invalid_dump_import(client):
     assert response.status_code == 400
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["_error_message"] == "Invalid dump format"
+
 
 def test_valid_dump_import_with_celery_disabled(client, settings):
     settings.CELERY_ENABLED = False
@@ -793,6 +902,7 @@ def test_valid_dump_import_with_celery_disabled(client, settings):
     assert "id" in response_data
     assert response_data["name"] == "Valid project"
 
+
 def test_valid_dump_import_with_celery_enabled(client, settings):
     settings.CELERY_ENABLED = True
 
@@ -813,6 +923,7 @@ def test_valid_dump_import_with_celery_enabled(client, settings):
     response_data = json.loads(response.content.decode("utf-8"))
     assert "import_id" in response_data
 
+
 def test_dump_import_duplicated_project(client):
     user = f.UserFactory.create()
     project = f.ProjectFactory.create(owner=user)
@@ -832,6 +943,7 @@ def test_dump_import_duplicated_project(client):
     response_data = json.loads(response.content.decode("utf-8"))
     assert response_data["name"] == "Test import"
     assert response_data["slug"] == "{}-test-import".format(user.username)
+
 
 def test_dump_import_throttling(client, settings):
     settings.REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"]["import-dump-mode"] = "1/minute"
