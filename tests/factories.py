@@ -408,7 +408,7 @@ class UserStoryCustomAttributesValuesFactory(Factory):
         model = "custom_attributes.UserStoryCustomAttributesValues"
         strategy = factory.CREATE_STRATEGY
 
-    values = {}
+    attributes_values = {}
     user_story = factory.SubFactory("tests.factories.UserStoryFactory")
 
 
@@ -417,7 +417,7 @@ class TaskCustomAttributesValuesFactory(Factory):
         model = "custom_attributes.TaskCustomAttributesValues"
         strategy = factory.CREATE_STRATEGY
 
-    values = {}
+    attributes_values = {}
     task = factory.SubFactory("tests.factories.TaskFactory")
 
 
@@ -426,7 +426,7 @@ class IssueCustomAttributesValuesFactory(Factory):
         model = "custom_attributes.IssueCustomAttributesValues"
         strategy = factory.CREATE_STRATEGY
 
-    values = {}
+    attributes_values = {}
     issue = factory.SubFactory("tests.factories.IssueFactory")
 
 
