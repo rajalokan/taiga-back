@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import csv
+import io
+
 from django.utils import timezone
 
 from taiga.base.utils import db, text
@@ -104,3 +107,16 @@ def open_userstory(us):
         us.is_closed = False
         us.finish_date = None
         us.save(update_fields=["is_closed", "finish_date"])
+
+
+def userstories_to_csv(queryset):
+    csv_data = io.StringIO()
+    writer = csv.DictWriter(csv_data, fieldnames=["ref", "subject"])
+    writer.writeheader()
+    for us in queryset:
+        writer.writerow({
+            "ref": us.ref,
+            "subject": us.subject,
+        })
+
+    return csv_data
