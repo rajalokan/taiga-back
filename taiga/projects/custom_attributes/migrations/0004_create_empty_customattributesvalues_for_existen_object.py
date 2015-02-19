@@ -9,27 +9,59 @@ def create_empty_user_story_custom_attrributes_values(apps, schema_editor):
     obj_model = apps.get_model("userstories", "UserStory")
     db_alias = schema_editor.connection.alias
 
-    for user_story in obj_model.objects.using(db_alias).all():
-        cav_model.objects.using(db_alias).get_or_create(user_story=user_story,
-                                                        defaults={"attributes_values":{}})
+    data = []
+    for user_story in obj_model.objects.using(db_alias).all().select_related("custom_attributes_values"):
+        if not hasattr(user_story, "custom_attributes_values"):
+            data.append(cav_model(user_story=user_story,attributes_values={}))
+
+    cav_model.objects.using(db_alias).bulk_create(data)
+
+
+def delete_empty_user_story_custom_attrributes_values(apps, schema_editor):
+    cav_model = apps.get_model("custom_attributes", "UserStoryCustomAttributesValues")
+    db_alias = schema_editor.connection.alias
+
+    cav_model.objects.using(db_alias).extra(where=["attributes_values::text <> '{}'::text"]).delete()
+
 
 def create_empty_task_custom_attrributes_values(apps, schema_editor):
     cav_model = apps.get_model("custom_attributes", "TaskCustomAttributesValues")
     obj_model = apps.get_model("tasks", "Task")
     db_alias = schema_editor.connection.alias
 
-    for task in obj_model.objects.using(db_alias).all():
-        cav_model.objects.using(db_alias).get_or_create(task=task,
-                                                        defaults={"attributes_values":{}})
+    data = []
+    for task in obj_model.objects.using(db_alias).all().select_related("custom_attributes_values"):
+        if not hasattr(task, "custom_attributes_values"):
+            data.append(cav_model(task=task,attributes_values={}))
+
+    cav_model.objects.using(db_alias).bulk_create(data)
+
+
+def delete_empty_task_custom_attrributes_values(apps, schema_editor):
+    cav_model = apps.get_model("custom_attributes", "TaskCustomAttributesValues")
+    db_alias = schema_editor.connection.alias
+
+    cav_model.objects.using(db_alias).extra(where=["attributes_values::text <> '{}'::text"]).delete()
+
 
 def create_empty_issues_custom_attrributes_values(apps, schema_editor):
     cav_model = apps.get_model("custom_attributes", "IssueCustomAttributesValues")
     obj_model = apps.get_model("issues", "Issue")
     db_alias = schema_editor.connection.alias
 
-    for issue in obj_model.objects.using(db_alias).all():
-        cav_model.objects.using(db_alias).get_or_create(issue=issue,
-                                                        defaults={"attributes_values":{}})
+    data = []
+    for issue in obj_model.objects.using(db_alias).all().select_related("custom_attributes_values"):
+        if not hasattr(issue, "custom_attributes_values"):
+            data.append(cav_model(issue=issue,attributes_values={}))
+
+    cav_model.objects.using(db_alias).bulk_create(data)
+
+
+def delete_empty_issue_custom_attrributes_values(apps, schema_editor):
+    cav_model = apps.get_model("custom_attributes", "IssueCustomAttributesValues")
+    db_alias = schema_editor.connection.alias
+
+    cav_model.objects.using(db_alias).extra(where=["attributes_values::text <> '{}'::text"]).delete()
 
 
 class Migration(migrations.Migration):
@@ -39,7 +71,13 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(create_empty_user_story_custom_attrributes_values),
-        migrations.RunPython(create_empty_task_custom_attrributes_values),
-        migrations.RunPython(create_empty_issues_custom_attrributes_values),
+        migrations.RunPython(create_empty_user_story_custom_attrributes_values,
+                             reverse_code=delete_empty_user_story_custom_attrributes_values,
+                             atomic=True),
+        migrations.RunPython(create_empty_task_custom_attrributes_values,
+                             reverse_code=delete_empty_task_custom_attrributes_values,
+                             atomic=True),
+        migrations.RunPython(create_empty_issues_custom_attrributes_values,
+                             reverse_code=delete_empty_issue_custom_attrributes_values,
+                             atomic=True),
     ]

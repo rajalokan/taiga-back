@@ -166,3 +166,8 @@ class ModelListViewSet(pagination.HeadersPaginationMixin,
                        mixins.ListModelMixin,
                        GenericViewSet):
     pass
+
+class ModelUpdateRetrieveViewSet(mixins.UpdateModelMixin,
+                                 mixins.RetrieveModelMixin,
+                                 GenericViewSet):
+    pass
