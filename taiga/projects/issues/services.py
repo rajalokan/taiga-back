@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
+import csv
+
 from taiga.base.utils import db, text
 
 from . import models
@@ -58,3 +61,16 @@ def update_issues_order_in_bulk(bulk_data):
         issue_ids.append(issue_id)
         new_order_values.append({"order": new_order_value})
     db.update_in_bulk_with_ids(issue_ids, new_order_values, model=models.Issue)
+
+
+def issues_to_csv(queryset):
+    csv_data = io.StringIO()
+    writer = csv.DictWriter(csv_data, fieldnames=["ref", "subject"])
+    writer.writeheader()
+    for issue in queryset:
+        writer.writerow({
+            "ref": issue.ref,
+            "subject": issue.subject,
+        })
+
+    return csv_data

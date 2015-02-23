@@ -14,6 +14,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
+import csv
+
 from taiga.base.utils import db, text
 from taiga.projects.history.services import take_snapshot
 from taiga.events import events
@@ -75,3 +78,16 @@ def snapshot_tasks_in_bulk(bulk_data, user):
             take_snapshot(task, user=user)
         except models.UserStory.DoesNotExist:
             pass
+
+
+def tasks_to_csv(queryset):
+    csv_data = io.StringIO()
+    writer = csv.DictWriter(csv_data, fieldnames=["ref", "subject"])
+    writer.writeheader()
+    for task in queryset:
+        writer.writerow({
+            "ref": task.ref,
+            "subject": task.subject,
+        })
+
+    return csv_data
