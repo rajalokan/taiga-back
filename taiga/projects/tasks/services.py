@@ -82,12 +82,30 @@ def snapshot_tasks_in_bulk(bulk_data, user):
 
 def tasks_to_csv(queryset):
     csv_data = io.StringIO()
-    writer = csv.DictWriter(csv_data, fieldnames=["ref", "subject"])
+    fieldnames = ["ref", "subject", "description", "user_story", "milestone", "owner",
+                  "owner_full_name", "assigned_to", "assigned_to_full_name",
+                  "status", "is_iocaine", "is_closed", "us_order",
+                  "taskboard_order", "attachments", "external_reference"]
+    writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
     writer.writeheader()
     for task in queryset:
         writer.writerow({
             "ref": task.ref,
             "subject": task.subject,
+            "description": task.description,
+            "user_story": task.user_story.ref if task.user_story else None,
+            "milestone": task.milestone.name if task.milestone else None,
+            "owner": task.owner.username,
+            "owner_full_name": task.owner.get_full_name(),
+            "assigned_to": task.assigned_to.username if task.assigned_to else None,
+            "assigned_to_full_name": task.assigned_to.get_full_name() if task.assigned_to else None,
+            "status": task.status.name,
+            "is_iocaine": task.is_iocaine,
+            "is_closed": task.status.is_closed,
+            "us_order": task.us_order,
+            "taskboard_order": task.taskboard_order,
+            "attachments": task.attachments.count(),
+            "external_reference": task.external_reference,
         })
 
     return csv_data

@@ -109,14 +109,52 @@ def open_userstory(us):
         us.save(update_fields=["is_closed", "finish_date"])
 
 
-def userstories_to_csv(queryset):
+def userstories_to_csv(project,queryset):
     csv_data = io.StringIO()
-    writer = csv.DictWriter(csv_data, fieldnames=["ref", "subject"])
+    fieldnames = ["ref", "subject", "description", "milestone", "owner",
+                  "owner_full_name", "assigned_to", "assigned_to_full_name",
+                  "status", "is_closed"]
+    for role in project.roles.filter(computable=True).order_by('name'):
+        fieldnames.append("{}-points".format(role.slug))
+    fieldnames.append("total-points".format(role.slug))
+
+    fieldnames += ["backlog_order", "sprint_order", "kanban_order",
+                   "created_date", "modified_date", "finish_date",
+                   "client_requirement", "team_requirement", "attachments",
+                   "generated_from_issue", "external_reference", "tasks"]
+
+    writer = csv.DictWriter(csv_data, fieldnames=fieldnames)
     writer.writeheader()
     for us in queryset:
-        writer.writerow({
+        row = {
             "ref": us.ref,
             "subject": us.subject,
-        })
+            "description": us.description,
+            "milestone": us.milestone.name if us.milestone else None,
+            "owner": us.owner.username,
+            "owner_full_name": us.owner.get_full_name(),
+            "assigned_to": us.assigned_to.username if us.assigned_to else None,
+            "assigned_to_full_name": us.assigned_to.get_full_name() if us.assigned_to else None,
+            "status": us.status.name,
+            "is_closed": us.is_closed,
+            "backlog_order": us.backlog_order,
+            "sprint_order": us.sprint_order,
+            "kanban_order": us.kanban_order,
+            "created_date": us.created_date,
+            "modified_date": us.modified_date,
+            "finish_date": us.finish_date,
+            "client_requirement": us.client_requirement,
+            "team_requirement": us.team_requirement,
+            "attachments": us.attachments.count(),
+            "generated_from_issue": us.generated_from_issue.ref if us.generated_from_issue else None,
+            "external_reference": us.external_reference,
+            "tasks": ",".join([str(task.ref) for task in us.tasks.all()]),
+        }
+
+        for role in us.project.roles.filter(computable=True).order_by('name'):
+            row["{}-points".format(role.slug)] = us.role_points.get(role_id=role.id).points.value
+        row['total-points'] = us.get_total_points()
+
+        writer.writerow(row)
 
     return csv_data
